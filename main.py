@@ -67,6 +67,12 @@ def get_ydl_opts():
                 'api_hostname': 'api22-normal-c-useast2a.tiktokv.com',
                 'app_version': '34.1.2',
                 'manifest_app_version': '2023401020',
+            },
+            'twitter': {
+                'api': 'syndication',
+            },
+            'reddit': {
+                'skip_hls': True,
             }
         },
         'http_headers': {
