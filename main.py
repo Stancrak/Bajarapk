@@ -49,7 +49,21 @@ def get_ydl_opts():
         'noplaylist': True,  # Solo el video individual
         'no_warnings': True,  # Suprime warnings
         'extract_flat': False,  # Extrae información completa
-        'socket_timeout': 10,  # Timeout de 10 segundos
+        'socket_timeout': 15,  # Timeout de 15 segundos
+        # Headers para simular navegador real
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Sec-Fetch-Mode': 'navigate',
+        },
+        # Usar cliente de Android/web para evitar detección
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'player_skip': ['webpage', 'configs'],
+            }
+        },
     }
 
 @app.get("/")
