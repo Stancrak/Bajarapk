@@ -48,19 +48,25 @@ def get_ydl_opts():
         'simulate': True,  # No descargar al disco del servidor
         'force_url': True,  # Solo queremos la URL
         'noplaylist': True,
-        'socket_timeout': 10,
+        'socket_timeout': 15,
+        'age_limit': None,
+        'geo_bypass': True,
         # Evasión de Bloqueos:
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios'],  # Simular ser un móvil
+                'player_client': ['android_creator', 'android', 'ios'],
                 'player_skip': ['webpage', 'configs', 'js'],
-                'include_ssl_logs': False
+                'skip': ['hls', 'dash', 'translated_subs'],
+            },
+            'instagram': {
+                'skip_hls': True,
             }
         },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
             'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': '*/*',
         }
     }
 
