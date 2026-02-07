@@ -31,7 +31,7 @@ class VideoRequest(BaseModel):
 class VideoData(BaseModel):
     title: str
     thumbnail: Optional[str] = None
-    duration: Optional[int] = None
+    duration: Optional[float] = None
     stream_url: str
 
 class VideoResponse(BaseModel):
@@ -47,23 +47,16 @@ def get_ydl_opts():
         'simulate': True,  # CRÍTICO: No descarga el video
         'force_url': True,  # Fuerza obtener URL directa
         'noplaylist': True,  # Solo el video individual
-        'no_warnings': True,  # Suprime warnings
-        'extract_flat': False,  # Extrae información completa
-        'socket_timeout': 15,  # Timeout de 15 segundos
-        # Headers para simular navegador real
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Sec-Fetch-Mode': 'navigate',
-        },
-        # Usar cliente de Android/web para evitar detección
+        # FIX PARA BLOQUEOS:
+        'nocheckcertificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'web'],
-                'player_skip': ['webpage', 'configs'],
+                'player_skip': ['webpage', 'configs', 'js'],
+                'include_ssl_logs': False
             }
-        },
+        }
     }
 
 @app.get("/")
