@@ -48,7 +48,8 @@ def get_ydl_opts():
         'simulate': True,  # No descargar al disco del servidor
         'force_url': True,  # Solo queremos la URL
         'noplaylist': True,
-        'socket_timeout': 15,
+        'socket_timeout': 30,  # Timeout aumentado para TikTok
+        'retries': 3,  # Reintentar 3 veces si falla
         'age_limit': None,
         'geo_bypass': True,
         # Evasión de Bloqueos:
