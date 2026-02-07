@@ -61,6 +61,11 @@ def get_ydl_opts():
             },
             'instagram': {
                 'skip_hls': True,
+            },
+            'tiktok': {
+                'api_hostname': 'api22-normal-c-useast2a.tiktokv.com',
+                'app_version': '34.1.2',
+                'manifest_app_version': '2023401020',
             }
         },
         'http_headers': {
