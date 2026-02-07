@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 import yt_dlp
 from typing import Optional
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Video URL Resolver API",
     description="API para resolver URLs directas de videos de YouTube, Facebook, Instagram, TikTok",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Configuración de CORS - Permite todos los orígenes
@@ -29,9 +29,9 @@ class VideoRequest(BaseModel):
     url: str
 
 class VideoData(BaseModel):
-    title: str
+    title: Optional[str] = "Sin título"
     thumbnail: Optional[str] = None
-    duration: Optional[float] = None
+    duration: Optional[float] = None  # Acepta decimales para Instagram
     stream_url: str
 
 class VideoResponse(BaseModel):
@@ -39,23 +39,28 @@ class VideoResponse(BaseModel):
     data: Optional[VideoData] = None
     message: Optional[str] = None
 
-# Configuración de yt-dlp
+# Configuración de yt-dlp optimizada para evasión de bloqueos
 def get_ydl_opts():
     return {
-        'format': 'best',  # Mejor calidad disponible
-        'quiet': True,  # No muestra logs excesivos
-        'simulate': True,  # CRÍTICO: No descarga el video
-        'force_url': True,  # Fuerza obtener URL directa
-        'noplaylist': True,  # Solo el video individual
-        # FIX PARA BLOQUEOS:
+        'format': 'best',  # Intenta obtener la mejor calidad
+        'quiet': True,
+        'no_warnings': True,
+        'simulate': True,  # No descargar al disco del servidor
+        'force_url': True,  # Solo queremos la URL
+        'noplaylist': True,
+        'socket_timeout': 10,
+        # Evasión de Bloqueos:
         'nocheckcertificate': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web'],
+                'player_client': ['android', 'ios'],  # Simular ser un móvil
                 'player_skip': ['webpage', 'configs', 'js'],
                 'include_ssl_logs': False
             }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
         }
     }
 
@@ -64,7 +69,8 @@ async def root():
     """Endpoint raíz con información de la API"""
     return {
         "message": "Video URL Resolver API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "status": "online",
         "endpoints": {
             "resolve": "POST /resolve - Resuelve URLs de video",
             "health": "GET /health - Estado de salud del servicio"
@@ -74,7 +80,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Endpoint de health check para monitoreo"""
-    return {"status": "healthy", "service": "video-resolver"}
+    return {"status": "healthy", "service": "video-resolver", "version": "2.0.0"}
 
 @app.post("/resolve", response_model=VideoResponse)
 async def resolve_video_url(request: VideoRequest):
@@ -98,6 +104,12 @@ async def resolve_video_url(request: VideoRequest):
             # Extrae información sin descargar
             info = ydl.extract_info(request.url, download=False)
             
+            if not info:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se pudo extraer información del video"
+                )
+            
             # Obtiene la URL directa del video
             stream_url = None
             if 'url' in info:
@@ -115,15 +127,15 @@ async def resolve_video_url(request: VideoRequest):
                     detail="No se pudo obtener la URL directa del video"
                 )
             
-            # Construye la respuesta
+            # Construye la respuesta con manejo seguro de campos opcionales
             video_data = VideoData(
                 title=info.get('title', 'Sin título'),
                 thumbnail=info.get('thumbnail'),
-                duration=info.get('duration'),
+                duration=float(info['duration']) if info.get('duration') is not None else None,
                 stream_url=stream_url
             )
             
-            logger.info(f"URL resuelta exitosamente: {info.get('title')}")
+            logger.info(f"URL resuelta exitosamente: {video_data.title}")
             
             return VideoResponse(
                 status="success",
@@ -131,13 +143,18 @@ async def resolve_video_url(request: VideoRequest):
             )
             
     except yt_dlp.utils.DownloadError as e:
-        logger.error(f"Error de yt-dlp: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Error de yt-dlp: {error_msg}")
         return VideoResponse(
             status="error",
-            message=f"No se pudo procesar la URL: {str(e)}"
+            message=f"No se pudo procesar la URL: {error_msg}"
         )
+    except HTTPException as e:
+        # Re-lanzar excepciones HTTP de FastAPI
+        raise e
     except Exception as e:
-        logger.error(f"Error inesperado: {str(e)}")
+        # Captura cualquier otro error inesperado
+        logger.error(f"Error inesperado: {str(e)}", exc_info=True)
         return VideoResponse(
             status="error",
             message=f"Error interno del servidor: {str(e)}"
