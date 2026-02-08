@@ -33,7 +33,8 @@ class VideoData(BaseModel):
     thumbnail: Optional[str] = None
     duration: Optional[float] = None  # Acepta decimales para Instagram
     stream_url: str
-    content_type: Optional[str] = "video"  # 'video' or 'image'
+    content_type: Optional[str] = "video"  # 'video', 'image', or 'audio'
+    file_extension: Optional[str] = "mp4"  # Extensión real del archivo
 
 class VideoResponse(BaseModel):
     status: str
@@ -129,9 +130,10 @@ async def resolve_video_url(request: VideoRequest):
                     detail="No se pudo extraer información del video"
                 )
             
-            # Obtiene la URL directa del video/imagen
+            # Obtiene la URL directa del video/imagen/audio
             stream_url = None
             content_type = "video"  # Por defecto asumimos video
+            file_extension = "mp4"  # Por defecto mp4
             
             if 'url' in info:
                 stream_url = info['url']
@@ -148,13 +150,39 @@ async def resolve_video_url(request: VideoRequest):
                     detail="No se pudo obtener la URL directa del contenido"
                 )
             
-            # Detectar si es imagen basado en la extensión o ext field
-            ext = info.get('ext', '').lower()
-            if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']:
+            # Detectar tipo de contenido y extensión
+            ext = info.get('ext', 'mp4').lower()
+            
+            # Listas de extensiones soportadas
+            image_exts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
+            video_exts = ['mp4', 'mkv', 'webm', 'avi', 'mov', 'flv', 'm4v', 'mpg', 'mpeg']
+            audio_exts = ['mp3', 'm4a', 'ogg', 'opus', 'wav', 'flac', 'aac']
+            
+            if ext in image_exts:
                 content_type = "image"
-            # También verificar si no tiene duración (típico de imágenes)
-            elif info.get('duration') is None and ext not in ['mp4', 'webm', 'mkv', 'avi']:
-                content_type = "image"
+                file_extension = ext
+            elif ext in audio_exts:
+                content_type = "audio"
+                file_extension = ext
+            elif ext in video_exts:
+                content_type = "video"
+                file_extension = ext
+            else:
+                # Si no reconocemos la extensión, usar vcodec/acodec para detectar
+                if info.get('vcodec') != 'none' and info.get('vcodec'):
+                    content_type = "video"
+                    file_extension = ext if ext else "mp4"
+                elif info.get('acodec') != 'none' and info.get('acodec'):
+                    content_type = "audio"
+                    file_extension = ext if ext else "mp3"
+                else:
+                    # Último recurso: verificar duración
+                    if info.get('duration') is None:
+                        content_type = "image"
+                        file_extension = "jpg"
+                    else:
+                        content_type = "video"
+                        file_extension = ext if ext else "mp4"
             
             # Construye la respuesta con manejo seguro de campos opcionales
             video_data = VideoData(
@@ -162,7 +190,8 @@ async def resolve_video_url(request: VideoRequest):
                 thumbnail=info.get('thumbnail'),
                 duration=float(info['duration']) if info.get('duration') is not None else None,
                 stream_url=stream_url,
-                content_type=content_type
+                content_type=content_type,
+                file_extension=file_extension
             )
             
             logger.info(f"URL resuelta exitosamente: {video_data.title}")
