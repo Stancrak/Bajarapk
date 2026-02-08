@@ -33,6 +33,7 @@ class VideoData(BaseModel):
     thumbnail: Optional[str] = None
     duration: Optional[float] = None  # Acepta decimales para Instagram
     stream_url: str
+    content_type: Optional[str] = "video"  # 'video' or 'image'
 
 class VideoResponse(BaseModel):
     status: str
@@ -128,8 +129,10 @@ async def resolve_video_url(request: VideoRequest):
                     detail="No se pudo extraer información del video"
                 )
             
-            # Obtiene la URL directa del video
+            # Obtiene la URL directa del video/imagen
             stream_url = None
+            content_type = "video"  # Por defecto asumimos video
+            
             if 'url' in info:
                 stream_url = info['url']
             elif 'formats' in info and len(info['formats']) > 0:
@@ -142,15 +145,24 @@ async def resolve_video_url(request: VideoRequest):
             if not stream_url:
                 raise HTTPException(
                     status_code=400,
-                    detail="No se pudo obtener la URL directa del video"
+                    detail="No se pudo obtener la URL directa del contenido"
                 )
+            
+            # Detectar si es imagen basado en la extensión o ext field
+            ext = info.get('ext', '').lower()
+            if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']:
+                content_type = "image"
+            # También verificar si no tiene duración (típico de imágenes)
+            elif info.get('duration') is None and ext not in ['mp4', 'webm', 'mkv', 'avi']:
+                content_type = "image"
             
             # Construye la respuesta con manejo seguro de campos opcionales
             video_data = VideoData(
                 title=info.get('title', 'Sin título'),
                 thumbnail=info.get('thumbnail'),
                 duration=float(info['duration']) if info.get('duration') is not None else None,
-                stream_url=stream_url
+                stream_url=stream_url,
+                content_type=content_type
             )
             
             logger.info(f"URL resuelta exitosamente: {video_data.title}")
